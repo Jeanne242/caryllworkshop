@@ -140,9 +140,15 @@ async function load() {
         if (!state.admin) $('#ccx_status').text('Read-only: admin account required');
     } catch (e) {
         $('#ccx_list').html(`<div class="ccx-msg ccx-err">
-          Can’t reach the Cache Control server plugin (${esc(e.message)}).<br>
-          Check that <code>enableServerPlugins: true</code> is set in config.yaml,
-          the plugin folder is in <code>SillyTavern/plugins/</code>, and you restarted SillyTavern.</div>`);
+          <b>One-time setup needed</b> (${esc(e.message)})<br>
+          1. In <code>config.yaml</code> set <code>enableServerPlugins: true</code><br>
+          2. From your SillyTavern folder, run:<br>
+          <code class="ccx-cmd">cp -r data/default-user/extensions/SillyTavern-CacheControl/plugin plugins/cache-control</code>
+          Windows:<br>
+          <code class="ccx-cmd">xcopy /E /I data\\default-user\\extensions\\SillyTavern-CacheControl\\plugin plugins\\cache-control</code>
+          3. Restart SillyTavern.<br>
+          <small>Installed “for all users”? Use <code>public/scripts/extensions/third-party/SillyTavern-CacheControl/plugin</code> instead. Different user name? Replace <code>default-user</code>.</small>
+        </div>`);
     }
 }
 

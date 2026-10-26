@@ -87,3 +87,9 @@
 @media (prefers-reduced-motion: reduce) {
     .ccx-slider, .ccx-slider::before, .ccx-row { transition: none; }
 }
+
+.ccx-cmd {
+    display: block; margin: 4px 0 8px; padding: 6px 8px;
+    border-radius: 6px; background: var(--black50a, rgba(0,0,0,0.3));
+    overflow-x: auto; white-space: nowrap; user-select: all; -webkit-user-select: all;
+}
