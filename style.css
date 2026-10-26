@@ -88,8 +88,15 @@
     .ccx-slider, .ccx-slider::before, .ccx-row { transition: none; }
 }
 
-.ccx-cmd {
-    display: block; margin: 4px 0 8px; padding: 6px 8px;
-    border-radius: 6px; background: var(--black50a, rgba(0,0,0,0.3));
-    overflow-x: auto; white-space: nowrap; user-select: all; -webkit-user-select: all;
-}
+/* One-time setup */
+.ccx-setup { display: flex; flex-direction: column; gap: 12px; padding: 12px;
+    border: 1px solid var(--SmartThemeQuoteColor); border-radius: 8px; }
+.ccx-setup p { margin: 0; line-height: 1.4; }
+.ccx-setup-title { margin: 0; }
+.ccx-setup-tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.ccx-setup-tabs .ccx-btn { flex: 1 1 140px; opacity: 0.65; }
+.ccx-setup-tabs .ccx-tab-on { opacity: 1; outline: 2px solid var(--SmartThemeQuoteColor); }
+.ccx-step { display: flex; flex-direction: column; gap: 6px; line-height: 1.4; }
+.ccx-copy { min-height: 48px; font-size: 1.05em; }
+.ccx-cmdbox { width: 100%; margin: 0; font-family: monospace; font-size: 0.8em; resize: vertical; word-break: break-all; }
+.ccx-detail { opacity: 0.65; line-height: 1.35; }

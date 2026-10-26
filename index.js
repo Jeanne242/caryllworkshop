@@ -130,6 +130,8 @@ async function load() {
         const r = await fetch(`${API}/config`, { headers: headers() });
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const data = await r.json();
+        $('.ccx-presets, .ccx-add, .ccx-savebar').show();
+        $('#ccx_list').off('click.setup');
         state.keys = data.keys;
         state.admin = data.admin !== false;
         state.original = new Map(data.keys.map(k => [k.key, k.value]));
@@ -139,17 +141,90 @@ async function load() {
         updateBar();
         if (!state.admin) $('#ccx_status').text('Read-only: admin account required');
     } catch (e) {
-        $('#ccx_list').html(`<div class="ccx-msg ccx-err">
-          <b>One-time setup needed</b> (${esc(e.message)})<br>
-          1. In <code>config.yaml</code> set <code>enableServerPlugins: true</code><br>
-          2. From your SillyTavern folder, run:<br>
-          <code class="ccx-cmd">cp -r data/default-user/extensions/SillyTavern-CacheControl/plugin plugins/cache-control</code>
-          Windows:<br>
-          <code class="ccx-cmd">xcopy /E /I data\\default-user\\extensions\\SillyTavern-CacheControl\\plugin plugins\\cache-control</code>
-          3. Restart SillyTavern.<br>
-          <small>Installed “for all users”? Use <code>public/scripts/extensions/third-party/SillyTavern-CacheControl/plugin</code> instead. Different user name? Replace <code>default-user</code>.</small>
-        </div>`);
+        showSetup(e.message);
     }
+}
+
+
+// ---------- One-time setup helper (shown when the server plugin is missing) ----------
+const SETUP_CMDS = {
+    termux: String.raw`(cd ~/SillyTavern 2>/dev/null; [ -f config.yaml ] || { echo "Open your SillyTavern folder first (cd SillyTavern) and paste again."; exit 1; }; if grep -q '^enableServerPlugins:' config.yaml; then sed -i.bak 's/^enableServerPlugins:.*/enableServerPlugins: true/' config.yaml; else echo 'enableServerPlugins: true' >> config.yaml; fi; SRC=$(ls -d data/*/extensions/SillyTavern-CacheControl/plugin public/scripts/extensions/third-party/SillyTavern-CacheControl/plugin 2>/dev/null | head -n1); [ -n "$SRC" ] || { echo "Cache Control extension not found. Install it in SillyTavern first."; exit 1; }; rm -rf plugins/cache-control; mkdir -p plugins; cp -r "$SRC" plugins/cache-control && echo "Done! Now restart SillyTavern.")`,
+    windows: String.raw`& { if (!(Test-Path config.yaml)) { 'Open PowerShell in your SillyTavern folder and paste again.'; return }; $c = Get-Content config.yaml; if ($c -match '^enableServerPlugins:') { $c = $c -replace '^enableServerPlugins:.*','enableServerPlugins: true' } else { $c += 'enableServerPlugins: true' }; Set-Content config.yaml $c; $src = @(Get-Item data\*\extensions\SillyTavern-CacheControl\plugin, public\scripts\extensions\third-party\SillyTavern-CacheControl\plugin -ErrorAction SilentlyContinue)[0]; if (!$src) { 'Cache Control extension not found. Install it in SillyTavern first.'; return }; Remove-Item -Recurse -Force plugins\cache-control -ErrorAction SilentlyContinue; New-Item -ItemType Directory -Force plugins | Out-Null; Copy-Item -Recurse $src.FullName plugins\cache-control; 'Done! Now restart SillyTavern.' }`,
+};
+const RESTART_HELP = {
+    termux: 'In Termux, press Ctrl + C to stop SillyTavern, then start it again the way you normally do (for example <code>./start.sh</code>).',
+    windows: 'Close the SillyTavern window and start it again with <code>Start.bat</code>.',
+};
+
+async function copyText(text) {
+    try {
+        await navigator.clipboard.writeText(text);
+        return true;
+    } catch {
+        // Fallback for http:// on a local network, where the clipboard API is blocked
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        ta.setSelectionRange(0, text.length);
+        let ok = false;
+        try { ok = document.execCommand('copy'); } catch { ok = false; }
+        ta.remove();
+        return ok;
+    }
+}
+
+function showSetup(errMsg) {
+    let os = /windows/i.test(navigator.userAgent) ? 'windows' : 'termux';
+    $('.ccx-presets, .ccx-add, .ccx-savebar').hide();
+    const draw = () => {
+        $('#ccx_list').html(`
+        <div class="ccx-setup">
+          <h4 class="ccx-setup-title">Finish setup (one time only)</h4>
+          <p>Cache Control needs a small helper on your SillyTavern server before it can change settings. Three steps:</p>
+
+          <div class="ccx-setup-tabs" role="tablist">
+            <button class="menu_button ccx-btn ${os === 'termux' ? 'ccx-tab-on' : ''}" data-os="termux" role="tab">Phone (Termux) / Linux / Mac</button>
+            <button class="menu_button ccx-btn ${os === 'windows' ? 'ccx-tab-on' : ''}" data-os="windows" role="tab">Windows PC</button>
+          </div>
+
+          <div class="ccx-step"><b>1. Copy the setup command</b>
+            <button class="menu_button ccx-btn ccx-primary ccx-copy" id="ccx_copy">
+              <i class="fa-solid fa-copy"></i> Copy setup command</button>
+            <textarea class="text_pole ccx-cmdbox" id="ccx_cmd" readonly rows="3">${esc(SETUP_CMDS[os])}</textarea>
+            <small>If Copy doesn't work, long-press the box above, tap Select all, then Copy.</small>
+          </div>
+
+          <div class="ccx-step"><b>2. Paste it and press Enter</b>
+            <div>${os === 'termux'
+                ? 'Switch to Termux, long-press the screen, tap <i>Paste</i>, then press Enter. You should see “Done!”.'
+                : 'Open the SillyTavern folder, click the address bar, type <code>powershell</code> and press Enter. Right-click to paste, then press Enter. You should see “Done!”.'}</div>
+          </div>
+
+          <div class="ccx-step"><b>3. Restart SillyTavern</b>
+            <div>${RESTART_HELP[os]} Then reload this page.</div>
+          </div>
+
+          <button class="menu_button ccx-btn" id="ccx_recheck"><i class="fa-solid fa-rotate"></i> I’ve done it, check again</button>
+          <small class="ccx-detail">Details: ${esc(errMsg)}. The command turns on <code>enableServerPlugins</code> in config.yaml (saving a backup as config.yaml.bak) and copies the helper into the plugins folder. It doesn't change anything else.</small>
+        </div>`);
+    };
+    draw();
+    $('#ccx_list').off('click.setup')
+        .on('click.setup', '[data-os]', function () { os = this.dataset.os; draw(); })
+        .on('click.setup', '#ccx_copy', async () => {
+            const ok = await copyText(SETUP_CMDS[os]);
+            if (ok) toastr.success('Command copied. Now paste it into ' + (os === 'termux' ? 'Termux.' : 'PowerShell.'), 'Cache Control');
+            else {
+                const box = document.getElementById('ccx_cmd');
+                box.focus(); box.select();
+                toastr.warning('Couldn’t copy automatically. The text is selected, so tap Copy.', 'Cache Control');
+            }
+        })
+        .on('click.setup', '#ccx_recheck', () => load());
 }
 
 async function save() {
